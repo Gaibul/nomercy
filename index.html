@@ -1,211 +1,203 @@
-{\rtf1\ansi\ansicpg1252\cocoartf2822
-\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
-{\colortbl;\red255\green255\blue255;}
-{\*\expandedcolortbl;;}
-\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>UNO No Mercy Online</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { background: #0b1d2d; color: white; font-family: Arial, sans-serif; margin: 0; text-align: center; }
+  #game { display: none; }
+  .pile { width: 80px; height: 120px; border-radius: 10px; margin: 10px auto; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; }
+  .card { width: 80px; height: 120px; border-radius: 10px; margin: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid white; }
+  .red { background: crimson; }
+  .blue { background: royalblue; }
+  .green { background: seagreen; }
+  .yellow { background: goldenrod; }
+  .wild { background: black; color: white; }
+  button { padding: 8px 12px; margin: 5px; font-size: 16px; }
+  #table { display: flex; justify-content: center; align-items: center; flex-direction: column; }
+  #player-hand { margin-top: 20px; }
+</style>
+</head>
+<body>
 
-\f0\fs24 \cf0 <!DOCTYPE html>\
-<html lang="en">\
-<head>\
-<meta charset="UTF-8">\
-<title>UNO No Mercy Online</title>\
-<meta name="viewport" content="width=device-width, initial-scale=1.0">\
-<style>\
-  body \{ background: #0b1d2d; color: white; font-family: Arial, sans-serif; margin: 0; text-align: center; \}\
-  #game \{ display: none; \}\
-  .pile \{ width: 80px; height: 120px; border-radius: 10px; margin: 10px auto; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; \}\
-  .card \{ width: 80px; height: 120px; border-radius: 10px; margin: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid white; \}\
-  .red \{ background: crimson; \}\
-  .blue \{ background: royalblue; \}\
-  .green \{ background: seagreen; \}\
-  .yellow \{ background: goldenrod; \}\
-  .wild \{ background: black; color: white; \}\
-  button \{ padding: 8px 12px; margin: 5px; font-size: 16px; \}\
-  #table \{ display: flex; justify-content: center; align-items: center; flex-direction: column; \}\
-  #player-hand \{ margin-top: 20px; \}\
-</style>\
-</head>\
-<body>\
-\
-<h1>UNO No Mercy Online</h1>\
-<div id="login">\
-  <input id="name" placeholder="Your name">\
-  <button onclick="createRoom()">Create Room</button>\
-  <input id="roomcode" placeholder="Room code">\
-  <button onclick="joinRoom()">Join Room</button>\
-</div>\
-\
-<div id="game">\
-  <h2>Room: <span id="room-id"></span></h2>\
-  <div id="table">\
-    <div>Draw Pile</div>\
-    <div id="draw-pile" class="pile" onclick="drawCard()">\uc0\u55356 \u56480 </div>\
-    <div>Discard Pile</div>\
-    <div id="discard-pile" class="pile"></div>\
-  </div>\
-  <div id="player-hand"></div>\
-  <button onclick="callUNO()">UNO!</button>\
-</div>\
-\
-<!-- Firebase -->\
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>\
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>\
-<script>\
-const firebaseConfig = \{\
-  apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",\
-  authDomain: "nomercy-8269a.firebaseapp.com",\
-  databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",\
-  projectId: "nomercy-8269a",\
-  storageBucket: "nomercy-8269a.firebasestorage.app",\
-  messagingSenderId: "349047620790",\
-  appId: "1:349047620790:web:3206ff81cb7f5413d29217",\
-  measurementId: "G-1WX7CWBFGF"\
-\};\
-firebase.initializeApp(firebaseConfig);\
-const db = firebase.database();\
-\
-let playerName = "";\
-let roomId = "";\
-let hand = [];\
-let currentTop = null;\
-let drawStack = 0;\
-let unoCalled = false;\
-\
-function createDeck() \{\
-  let colors = ["red","blue","green","yellow"];\
-  let specials = ["skip","reverse","+2"];\
-  let deck = [];\
-  colors.forEach(c => \{\
-    deck.push(\{color:c,value:0\});\
-    for (let i=1; i<=9; i++) deck.push(\{color:c,value:i\}, \{color:c,value:i\});\
-    specials.forEach(s => deck.push(\{color:c,value:s\}, \{color:c,value:s\}));\
-  \});\
-  for (let i=0;i<4;i++) \{\
-    deck.push(\{color:"wild",value:"wild"\});\
-    deck.push(\{color:"wild",value:"+4"\});\
-  \}\
-  return shuffle(deck);\
-\}\
-\
-function shuffle(a) \{\
-  for (let i = a.length - 1; i > 0; i--) \{\
-    const j = Math.floor(Math.random() * (i + 1));\
-    [a[i], a[j]] = [a[j], a[i]];\
-  \}\
-  return a;\
-\}\
-\
-function createRoom() \{\
-  playerName = document.getElementById("name").value;\
-  roomId = Math.random().toString(36).substr(2, 5).toUpperCase();\
-  let deck = createDeck();\
-  let startHand = \{\};\
-  startHand[playerName] = deck.splice(0,7);\
-  db.ref("rooms/"+roomId).set(\{\
-    deck: deck, \
-    discard: [], \
-    players: startHand, \
-    turn: playerName, \
-    direction: 1, \
-    order: [playerName], \
-    drawStack: 0\
-  \});\
-  document.getElementById("room-id").innerText = roomId;\
-  document.getElementById("login").style.display="none";\
-  document.getElementById("game").style.display="block";\
-  startGameListener();\
-\}\
-\
-function joinRoom() \{\
-  playerName = document.getElementById("name").value;\
-  roomId = document.getElementById("roomcode").value.toUpperCase();\
-  db.ref("rooms/"+roomId).once("value", snap => \{\
-    let data = snap.val();\
-    if (!data.players[playerName]) \{\
-      let deck = data.deck;\
-      data.players[playerName] = deck.splice(0,7);\
-      data.order.push(playerName);\
-      db.ref("rooms/"+roomId).set(data);\
-    \}\
-  \});\
-  document.getElementById("room-id").innerText = roomId;\
-  document.getElementById("login").style.display="none";\
-  document.getElementById("game").style.display="block";\
-  startGameListener();\
-\}\
-\
-function startGameListener() \{\
-  db.ref("rooms/"+roomId).on("value", snap => \{\
-    let data = snap.val();\
-    if (!data) return;\
-    hand = data.players[playerName] || [];\
-    currentTop = data.discard[data.discard.length-1] || null;\
-    drawStack = data.drawStack || 0;\
-    render();\
-  \});\
-\}\
-\
-function render() \{\
-  document.getElementById("discard-pile").innerText = currentTop ? currentTop.value : "";\
-  let handDiv = document.getElementById("player-hand");\
-  handDiv.innerHTML = "";\
-  hand.forEach((card, idx) => \{\
-    let cdiv = document.createElement("div");\
-    cdiv.className = "card "+card.color;\
-    cdiv.innerText = card.value;\
-    cdiv.onclick = () => playCard(idx);\
-    handDiv.appendChild(cdiv);\
-  \});\
-\}\
-\
-function drawCard() \{\
-  let ref = db.ref("rooms/"+roomId);\
-  ref.once("value", snap => \{\
-    let data = snap.val();\
-    let deck = data.deck;\
-    if (deck.length == 0) \{\
-      deck = shuffle(data.discard.slice(0,-1));\
-      data.discard = [data.discard[data.discard.length-1]];\
-    \}\
-    let count = drawStack > 0 ? drawStack : 1;\
-    for (let i=0;i<count;i++) \{\
-      if (deck.length == 0) break;\
-      let card = deck.pop();\
-      data.players[playerName].push(card);\
-    \}\
-    data.deck = deck;\
-    data.drawStack = 0;\
-    db.ref("rooms/"+roomId).set(data);\
-  \});\
-\}\
-\
-function playCard(idx) \{\
-  let card = hand[idx];\
-  if (!isPlayable(card)) return;\
-  let ref = db.ref("rooms/"+roomId);\
-  ref.once("value", snap => \{\
-    let data = snap.val();\
-    data.discard.push(card);\
-    data.players[playerName].splice(idx,1);\
-\
-    if (card.value === "+2") data.drawStack = (data.drawStack||0)+2;\
-    if (card.value === "+4") data.drawStack = (data.drawStack||0)+4;\
-\
-    db.ref("rooms/"+roomId).set(data);\
-    unoCalled = false;\
-  \});\
-\}\
-\
-function isPlayable(card) \{\
-  if (!currentTop) return true;\
-  return card.color === currentTop.color || card.value === currentTop.value || card.color === "wild";\
-\}\
-\
-function callUNO() \{\
-  if (hand.length === 2) unoCalled = true;\
-\}\
-</script>\
-</body>\
-</html>\
+<h1>UNO No Mercy Online</h1>
+<div id="login">
+  <input id="name" placeholder="Your name">
+  <button onclick="createRoom()">Create Room</button>
+  <input id="roomcode" placeholder="Room code">
+  <button onclick="joinRoom()">Join Room</button>
+</div>
+
+<div id="game">
+  <h2>Room: <span id="room-id"></span></h2>
+  <div id="table">
+    <div>Draw Pile</div>
+    <div id="draw-pile" class="pile" onclick="drawCard()">🂠</div>
+    <div>Discard Pile</div>
+    <div id="discard-pile" class="pile"></div>
+  </div>
+  <div id="player-hand"></div>
+  <button onclick="callUNO()">UNO!</button>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
+  authDomain: "nomercy-8269a.firebaseapp.com",
+  databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nomercy-8269a",
+  storageBucket: "nomercy-8269a.firebasestorage.app",
+  messagingSenderId: "349047620790",
+  appId: "1:349047620790:web:3206ff81cb7f5413d29217",
+  measurementId: "G-1WX7CWBFGF"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let playerName = "";
+let roomId = "";
+let hand = [];
+let currentTop = null;
+let drawStack = 0;
+let unoCalled = false;
+
+function createDeck() {
+  let colors = ["red","blue","green","yellow"];
+  let specials = ["skip","reverse","+2"];
+  let deck = [];
+  colors.forEach(c => {
+    deck.push({color:c,value:0});
+    for (let i=1; i<=9; i++) deck.push({color:c,value:i}, {color:c,value:i});
+    specials.forEach(s => deck.push({color:c,value:s}, {color:c,value:s}));
+  });
+  for (let i=0;i<4;i++) {
+    deck.push({color:"wild",value:"wild"});
+    deck.push({color:"wild",value:"+4"});
+  }
+  return shuffle(deck);
 }
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function createRoom() {
+  playerName = document.getElementById("name").value;
+  roomId = Math.random().toString(36).substr(2, 5).toUpperCase();
+  let deck = createDeck();
+  let startHand = {};
+  startHand[playerName] = deck.splice(0,7);
+  db.ref("rooms/"+roomId).set({
+    deck: deck, 
+    discard: [], 
+    players: startHand, 
+    turn: playerName, 
+    direction: 1, 
+    order: [playerName], 
+    drawStack: 0
+  });
+  document.getElementById("room-id").innerText = roomId;
+  document.getElementById("login").style.display="none";
+  document.getElementById("game").style.display="block";
+  startGameListener();
+}
+
+function joinRoom() {
+  playerName = document.getElementById("name").value;
+  roomId = document.getElementById("roomcode").value.toUpperCase();
+  db.ref("rooms/"+roomId).once("value", snap => {
+    let data = snap.val();
+    if (!data.players[playerName]) {
+      let deck = data.deck;
+      data.players[playerName] = deck.splice(0,7);
+      data.order.push(playerName);
+      db.ref("rooms/"+roomId).set(data);
+    }
+  });
+  document.getElementById("room-id").innerText = roomId;
+  document.getElementById("login").style.display="none";
+  document.getElementById("game").style.display="block";
+  startGameListener();
+}
+
+function startGameListener() {
+  db.ref("rooms/"+roomId).on("value", snap => {
+    let data = snap.val();
+    if (!data) return;
+    hand = data.players[playerName] || [];
+    currentTop = data.discard[data.discard.length-1] || null;
+    drawStack = data.drawStack || 0;
+    render();
+  });
+}
+
+function render() {
+  document.getElementById("discard-pile").innerText = currentTop ? currentTop.value : "";
+  let handDiv = document.getElementById("player-hand");
+  handDiv.innerHTML = "";
+  hand.forEach((card, idx) => {
+    let cdiv = document.createElement("div");
+    cdiv.className = "card "+card.color;
+    cdiv.innerText = card.value;
+    cdiv.onclick = () => playCard(idx);
+    handDiv.appendChild(cdiv);
+  });
+}
+
+function drawCard() {
+  let ref = db.ref("rooms/"+roomId);
+  ref.once("value", snap => {
+    let data = snap.val();
+    let deck = data.deck;
+    if (deck.length == 0) {
+      deck = shuffle(data.discard.slice(0,-1));
+      data.discard = [data.discard[data.discard.length-1]];
+    }
+    let count = drawStack > 0 ? drawStack : 1;
+    for (let i=0;i<count;i++) {
+      if (deck.length == 0) break;
+      let card = deck.pop();
+      data.players[playerName].push(card);
+    }
+    data.deck = deck;
+    data.drawStack = 0;
+    db.ref("rooms/"+roomId).set(data);
+  });
+}
+
+function playCard(idx) {
+  let card = hand[idx];
+  if (!isPlayable(card)) return;
+  let ref = db.ref("rooms/"+roomId);
+  ref.once("value", snap => {
+    let data = snap.val();
+    data.discard.push(card);
+    data.players[playerName].splice(idx,1);
+
+    if (card.value === "+2") data.drawStack = (data.drawStack||0)+2;
+    if (card.value === "+4") data.drawStack = (data.drawStack||0)+4;
+
+    db.ref("rooms/"+roomId).set(data);
+    unoCalled = false;
+  });
+}
+
+function isPlayable(card) {
+  if (!currentTop) return true;
+  return card.color === currentTop.color || card.value === currentTop.value || card.color === "wild";
+}
+
+function callUNO() {
+  if (hand.length === 2) unoCalled = true;
+}
+</script>
+</body>
+</html>
