@@ -1,88 +1,493 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>UNO No Mercy Online</title>
-<style>
-  body { font-family: Arial, sans-serif; background: #0d1b2a; color: white; text-align: center; margin: 0; padding: 0; }
-  h1, h2 { margin: 10px; }
-  .game-area { display: flex; flex-direction: column; align-items: center; margin-top: 20px; }
-  .pile { margin: 10px; padding: 10px; border: 2px dashed white; min-width: 100px; min-height: 140px; display: flex; align-items: center; justify-content: center; }
-  .card { width: 80px; height: 120px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin: 4px; position: relative; }
-  .red { background: #d62828; }
-  .yellow { background: #fcbf49; color: black; }
-  .green { background: #2a9d8f; }
-  .blue { background: #264653; }
-  .wild { background: linear-gradient(45deg, red, yellow, green, blue); }
-  .draw-two::after { content: "+2"; font-size: 18px; position: absolute; bottom: 5px; right: 5px; }
-  .draw-four::after { content: "+4"; font-size: 18px; position: absolute; bottom: 5px; right: 5px; }
-  .draw-ten::after { content: "+10"; font-size: 18px; position: absolute; bottom: 5px; right: 5px; }
-  .discard-all::after { content: "⇥ALL"; font-size: 14px; position: absolute; bottom: 5px; right: 5px; }
-  .swap-seven::after { content: "7⇄"; font-size: 14px; position: absolute; bottom: 5px; right: 5px; }
-  .pass-zero::after { content: "0⇆"; font-size: 14px; position: absolute; bottom: 5px; right: 5px; }
-  .roulette::after { content: "🎯"; font-size: 14px; position: absolute; bottom: 5px; right: 5px; }
-  button { padding: 8px 16px; font-size: 16px; margin: 10px; border-radius: 8px; border: none; cursor: pointer; }
-  .uno-btn { background: gold; color: black; font-weight: bold; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>No‑Mercy Card Match (UNO‑No‑Mercy Rules)</title>
+  <style>
+    :root{
+      --bg:#0f1226;--card:#171a33;--muted:#9aa3b2;--accent:#7c5cff;--good:#22c55e;--bad:#ef4444;--warn:#f59e0b;--panel:#111428;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; background:radial-gradient(60rem 60rem at 80% -10%,#23294f,transparent),radial-gradient(70rem 70rem at -10% 110%,#1b2040,transparent),var(--bg); color:#e6e8ef}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+    h1{font-size:clamp(20px,4vw,28px);margin:0}
+    .pill{padding:6px 10px;background:linear-gradient(135deg,#2a2e57,#1b1f3f);border:1px solid #2d325f;border-radius:999px;color:#cbd5e1;font-size:12px}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.00));border:1px solid #2a2d52;border-radius:16px;padding:16px}
+    .grid{display:grid;gap:16px}
+    @media(min-width:880px){.grid{grid-template-columns:360px 1fr}}
+    input,button,select{font:inherit}
+    input[type=text]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #2a2d52;background:#0d1030;color:#e6e8ef}
+    button{border:1px solid #2d325f;border-radius:12px;padding:10px 14px;background:#171a33;color:#e6e8ef;cursor:pointer}
+    button.primary{background:linear-gradient(135deg,#6d5cff,#945cff);border-color:#7c5cff}
+    button.ghost{background:transparent}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted);font-size:13px}
+    .label{font-size:12px;color:#cbd5e1;margin-bottom:6px}
+    .invite{display:none;gap:8px;align-items:center;background:#12163a;border:1px solid #2a2d52;border-radius:12px;padding:8px 12px}
+    .invite .code{font-weight:700;background:#0c1030;border:1px solid #2a2d52;border-radius:8px;padding:6px 10px}
+    .warn{color:var(--warn)}
+    .good{color:var(--good)}
+    .bad{color:var(--bad)}
+    .table{display:grid;gap:16px}
+    @media(min-width:640px){.table{grid-template-columns: 1fr 320px}}
+    .players{display:flex;flex-direction:column;gap:8px}
+    .player{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid #272a50;border-radius:12px;padding:10px}
+    .player.me{outline:2px solid var(--accent)}
+    .player .name{font-weight:600}
+    .badge{padding:2px 8px;border-radius:999px;border:1px solid #2d325f;background:#14173a;color:#cbd5e1;font-size:12px}
+    .current{border-color:#9f7aea;box-shadow:0 0 0 2px rgba(124,92,255,.35) inset}
+
+    .board{background:conic-gradient(from 0deg,#ff4d4d 0 25%,#3ecf8e 0 50%,#ffd166 0 75%,#60a5fa 0 100%);border-radius:16px;padding:14px}
+    .board-inner{background:#0e1231b8;border:1px dashed #3a3f71;padding:16px;border-radius:12px;min-height:220px;display:grid;place-items:center}
+    .pile{display:flex;gap:12px;align-items:center}
+
+    .card{width:70px;height:110px;border-radius:12px;background:#fff;display:grid;place-items:center;color:#111;font-weight:800;font-size:28px;box-shadow:0 10px 24px rgba(0,0,0,.2);position:relative}
+    .card .sym{font-size:36px}
+    .card .tiny{position:absolute;top:6px;left:8px;font-size:12px;font-weight:700}
+    .card.red{background:#ff4d4d;color:#fff}
+    .card.green{background:#22c55e;color:#fff}
+    .card.blue{background:#3b82f6;color:#fff}
+    .card.yellow{background:#f59e0b;color:#111}
+    .card.wild{background:linear-gradient(135deg,#222,#444);color:#fff}
+    .card.outline{border:2px dashed #94a3b8;background:transparent;color:#94a3b8;box-shadow:none}
+
+    .hand{display:flex;gap:8px;flex-wrap:wrap}
+    .log{height:200px;overflow:auto;background:#0d1030;border:1px solid #2a2d52;border-radius:12px;padding:10px;font-size:13px}
+    .small{font-size:12px}
+
+    .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#15183a;border:1px solid #2d325f;padding:10px 14px;border-radius:999px;color:#cbd5e1;box-shadow:0 10px 24px rgba(0,0,0,.3);display:none}
+    .toast.show{display:block}
+
+    .uno{background:#ef4444;border-color:#ef4444}
+    .catch{background:#f59e0b;border-color:#f59e0b;color:#111}
+  </style>
 </head>
 <body>
+  <div class="wrap">
+    <header>
+      <h1>No‑Mercy Card Match <span class="pill">UNO‑No‑Mercy • Cross‑platform</span></h1>
+      <div class="muted small">Host on GitHub Pages • Realtime via Firebase</div>
+      <div id="inviteBar" class="invite">
+        <span class="muted small">Room:</span>
+        <span id="roomCode" class="code">—</span>
+        <button id="copyInviteBtn">Copy invite link</button>
+      </div>
+    </header>
 
-<h1>UNO No Mercy Online</h1>
-<h2 id="room-code">Room: XXXX</h2>
+    <div class="grid">
+      <section class="panel" id="lobbyPanel">
+        <div class="label">Display name</div>
+        <input id="nameInput" type="text" placeholder="e.g., Gaibul" />
+        <div class="label" style="margin-top:12px">Create or join a room</div>
+        <div class="row">
+          <button class="primary" id="createRoomBtn">Create room</button>
+          <input id="roomInput" type="text" placeholder="Enter room code" style="max-width:160px" />
+          <button id="joinRoomBtn">Join</button>
+          <button class="ghost" id="copyRoomBtn" title="Copy room link" disabled>Copy link</button>
+        </div>
+        <p class="muted small" style="margin-top:10px">Independent fan‑made UNO‑like. Not affiliated with Mattel.</p>
+      </section>
 
-<div class="game-area">
-  <div>
-    <h3>Draw Pile</h3>
-    <div id="draw-pile" class="pile">🂠</div>
+      <section class="panel table" id="tablePanel" style="display:none">
+        <div class="players" id="players"></div>
+        <div>
+          <div class="board">
+            <div class="board-inner">
+              <div>
+                <div class="pile">
+                  <div id="discardTop" class="card outline"><span class="tiny">DISC</span><span>–</span></div>
+                  <div id="drawPile" class="card outline"><span class="tiny">DRAW</span><span>∞</span></div>
+                </div>
+                <div class="row" style="justify-content:center;margin-top:10px">
+                  <button class="primary" id="startBtn">Start game</button>
+                  <button id="drawBtn">Draw</button>
+                  <!-- Pass removed -->
+                  <button id="unoBtn" class="uno">UNO!</button>
+                  <select id="wildColor" style="display:none">
+                    <option value="red">Red</option>
+                    <option value="green">Green</option>
+                    <option value="blue">Blue</option>
+                    <option value="yellow">Yellow</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin:14px 0 8px">Your hand</h3>
+          <div class="hand" id="hand"></div>
+
+          <h3 style="margin:14px 0 8px">Game log</h3>
+          <div class="log" id="log"></div>
+        </div>
+      </section>
+    </div>
   </div>
-  <div>
-    <h3>Discard Pile</h3>
-    <div id="discard-pile" class="pile"></div>
-  </div>
-</div>
 
-<div id="player-hand" style="margin-top:20px;"></div>
+  <div class="toast" id="toast"></div>
 
-<button class="uno-btn" onclick="callUNO()">UNO!</button>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js">
 
-<h3>Game Log</h3>
-<div id="game-log" style="background:#1b263b; padding:10px; min-height:100px; max-width:400px; margin:auto; overflow:auto;"></div>
+// ====== UNO No Mercy Rule Updates ======
 
-<script>
-// Basic multiplayer simulation placeholder
-let roomCode = Math.random().toString(36).substring(2,7).toUpperCase();
-document.getElementById('room-code').innerText = "Room: " + roomCode;
-
-let gameLog = document.getElementById('game-log');
-function log(msg){ gameLog.innerHTML += msg + "<br>"; gameLog.scrollTop = gameLog.scrollHeight; }
-
-// Example of rendering cards in hand
-let playerHand = document.getElementById('player-hand');
-let sampleCards = [
-  {color:'red', value:'5'}, {color:'yellow', value:'+2', type:'draw-two'},
-  {color:'blue', value:'+4', type:'draw-four'}, {color:'wild', value:'+10', type:'draw-ten'},
-  {color:'green', value:'7', type:'swap-seven'}, {color:'wild', value:'R', type:'roulette'}
-];
-
-function renderHand(){
-  playerHand.innerHTML = '';
-  sampleCards.forEach(card => {
-    let div = document.createElement('div');
-    div.classList.add('card', card.color);
-    if(card.type) div.classList.add(card.type);
-    div.innerText = (!card.type || card.color==='wild') ? card.value : '';
-    playerHand.appendChild(div);
-  });
-}
-renderHand();
-
-function callUNO(){
-  log("You called UNO!");
+// Fix +2 stacking
+// Ensure drawTwo cards increment the draw stack like +4/+10 and restrict play to other draw cards of equal or higher value.
+function handleDrawTwoStack(player) {
+    if (currentDrawStack > 0 && lastCardPlayed.type === '+2') {
+        // enforce stacking or drawing logic here
+    }
 }
 
-// TODO: Implement multiplayer game logic with Firebase
+// Implement 7 swap rule
+function handleSevenSwap(player) {
+    // let them choose another player and swap hands
+}
+
+// Implement 0 pass rule
+function handleZeroPass() {
+    // rotate hands in direction of play
+}
+
+// Implement Wild Color Roulette
+function handleWildRoulette(player, chosenColor) {
+    // next player draws until they find chosenColor
+}
+
+// Check 25-card limit
+function checkCardLimit(player) {
+    if (player.hand.length >= 25) {
+        log(player.name + " has reached 25 cards and is eliminated!");
+        eliminatePlayer(player);
+    }
+}
+
+// Announce winner
+function announceWinner(player) {
+    log(player.name + " won the game!");
+    gameLocked = true;
+}
+
 </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
+  <script type="module">
+    // 1) Firebase config
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
+      authDomain: "nomercy-8269a.firebaseapp.com",
+      databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "nomercy-8269a",
+      storageBucket: "nomercy-8269a.firebasestorage.app",
+      messagingSenderId: "349047620790",
+      appId: "1:349047620790:web:3206ff81cb7f5413d29217",
+      measurementId: "G-1WX7CWBFGF"
+    };
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const db = firebase.database();
+
+    // 2) Helpers
+    const $ = s => document.querySelector(s);
+    const logEl = $('#log');
+    function log(msg){ const p=document.createElement('div'); p.textContent=msg; logEl.appendChild(p); logEl.scrollTop=logEl.scrollHeight; }
+    function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+    function mod(a,b){return ((a%b)+b)%b}
+    function uid(){return Math.random().toString(36).slice(2,9)}
+
+    const COLORS = ['red','green','blue','yellow'];
+    const VALUES = ['0','1','2','3','4','5','6','7','8','9','S','R','+2'];
+    function drawValue(card){
+      if(!card) return 0;
+      if(card.t==='act' && card.v==='+2') return 2;
+      if(card.t==='wild' && card.v && card.v.startsWith('+')) return parseInt(card.v.slice(1),10)||0;
+      return 0;
+    }
+
+    function makeDeck(){
+      const deck=[];
+      for(const c of COLORS){
+        deck.push({t:'num',c,v:'0'});
+        for(const v of VALUES.filter(v=>v!=='0')){
+          deck.push({t: v.match(/\\+2|S|R/)?'act':'num', c, v});
+          deck.push({t: v.match(/\\+2|S|R/)?'act':'num', c, v});
+        }
+      }
+      // Wilds
+      for(let i=0;i<4;i++){deck.push({t:'wild',v:'W'});deck.push({t:'wild',v:'+4'});}
+      for(let i=0;i<4;i++) deck.push({t:'wild',v:'+6'});
+      for(let i=0;i<2;i++) deck.push({t:'wild',v:'+10'});
+      return shuffle(deck);
+    }
+    function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+    // 3) Local id/name
+    let myId=localStorage.getItem('nm_me')||uid();
+    localStorage.setItem('nm_me',myId);
+    let myName=localStorage.getItem('nm_name')||'';
+    $('#nameInput').value=myName;
+
+    // 4) Room/session
+    let roomId=null, isHost=false, unsub=null;
+
+    const inviteBar = $('#inviteBar');
+    const roomCodeEl = $('#roomCode');
+    const copyInviteBtn = $('#copyInviteBtn');
+    function updateInviteBar(){ if(!roomId){ inviteBar.style.display='none'; return; } roomCodeEl.textContent=roomId; inviteBar.style.display='flex'; }
+    function currentInviteLink(){ return `${location.origin}${location.pathname}?room=${roomId}`; }
+    copyInviteBtn.onclick = ()=>{ if(!roomId) return; navigator.clipboard.writeText(currentInviteLink()); toast('Invite link copied'); };
+
+    // 5) Lobby actions
+    $('#createRoomBtn').onclick=async()=>{
+      myName = $('#nameInput').value.trim()||`Player_${myId.slice(0,4)}`;
+      localStorage.setItem('nm_name',myName);
+      const id=(Math.random().toString(36).slice(2,6)+Math.random().toString(36).slice(2,6)).toUpperCase();
+      roomId=id; isHost=true;
+      const base={
+        created:Date.now(),
+        host:myId,
+        started:false,
+        turn:0, dir:1, drawStack:0, currentColor:null,
+        players:{},
+        deck:[], discard:[]
+      };
+      await db.ref(`rooms/${roomId}`).set(base);
+      await addPlayer();
+      enterTable();
+      updateInviteBar();
+      try{ await navigator.clipboard.writeText(currentInviteLink()); toast('Invite link copied'); }catch{}
+    };
+    $('#joinRoomBtn').onclick=async()=>{
+      const id=$('#roomInput').value.trim().toUpperCase();
+      if(!id){toast('Enter a room code');return}
+      const snap=await db.ref(`rooms/${id}`).get();
+      if(!snap.exists()){toast('Room not found');return}
+      roomId=id; isHost=(snap.val().host===myId);
+      await addPlayer();
+      enterTable();
+      updateInviteBar();
+    };
+    $('#copyRoomBtn').onclick=()=>{ if(!roomId){toast('Create or join a room first');return;} navigator.clipboard.writeText(currentInviteLink()); toast('Invite link copied'); };
+
+    async function addPlayer(){
+      myName=$('#nameInput').value.trim()||`Player_${myId.slice(0,4)}`;
+      localStorage.setItem('nm_name',myName);
+      const p={id:myId,name:myName,hand:[],joined:Date.now(),unoReady:false};
+      await db.ref(`rooms/${roomId}/players/${myId}`).set(p);
+    }
+
+    function enterTable(){
+      $('#lobbyPanel').style.display='none';
+      $('#tablePanel').style.display='grid';
+      $('#startBtn').style.display = isHost? 'inline-block':'none';
+      $('#copyRoomBtn').disabled=false;
+      if(unsub) unsub();
+      const ref=db.ref(`rooms/${roomId}`);
+      const handler=(snap)=>{ if(!snap.exists()) return; const r=snap.val(); window._room=r; render(r); };
+      ref.on('value',handler); unsub=()=>ref.off('value',handler);
+      history.replaceState({},'',`?room=${roomId}`);
+    }
+
+    // Deep link prefill
+    (function(){ const u=new URL(location.href); const rid=u.searchParams.get('room'); if(rid){ $('#roomInput').value=rid; } })();
+
+    // 6) Start game
+    $('#startBtn').onclick=async()=>{
+      const rRef=db.ref(`rooms/${roomId}`); const snap=await rRef.get(); const r=snap.val();
+      if(!isHost){ toast('Only host can start'); return }
+      const ids=Object.keys(r.players||{}); if(ids.length<2){ toast('Need at least 2 players'); return }
+      let deck=makeDeck();
+      for(const pid of ids){ r.players[pid].hand=[]; r.players[pid].unoReady=false; }
+      for(let i=0;i<7;i++) for(const pid of ids){ r.players[pid].hand.push(deck.pop()) }
+      let first=deck.pop();
+      while(first.t==='wild' || (first.t==='act' && first.v.match(/S|R|\\+2/))){ deck.unshift(first); deck=shuffle(deck); first=deck.pop(); }
+      r.discard=[first]; r.currentColor=first.c; r.turn=0; r.dir=1; r.drawStack=0; r.started=true; r.deck=deck;
+      await rRef.set(r); log('Game started');
+    };
+
+    // 7) Buttons
+    $('#drawBtn').onclick=()=> doDraw();
+    $('#unoBtn').onclick=()=> setUnoReady();
+
+    async function setUnoReady(){
+      const ref=db.ref(`rooms/${roomId}/players/${myId}/unoReady`);
+      await ref.set(true); toast('UNO armed for this turn');
+    }
+
+    async function doDraw(){
+      const rRef=db.ref(`rooms/${roomId}`);
+      await rRef.transaction(r=>{
+        if(!r||!r.started) return r;
+        const ids=Object.keys(r.players||{}); if(ids.length===0) return r;
+        const cur=ids[r.turn]; if(cur!==myId) return r;
+        const n = r.drawStack>0? r.drawStack : 1;
+        for(let i=0;i<n;i++){
+          if(r.deck.length===0){ const top=r.discard.pop(); r.deck=shuffle(r.discard); r.discard=[top]; }
+          r.players[cur].hand.push(r.deck.pop());
+        }
+        r.players[cur].unoReady=false; // UNO pre-call expires on draw/turn end
+        r.drawStack=0;
+        r.turn = mod(r.turn + r.dir, ids.length);
+        return r;
+      });
+    }
+
+    // 8) Rules helpers
+    function canPlay(card, top, currentColor, r){
+      if(!r||!card) return false;
+      // If there is an active draw stack, only draw cards of equal or higher value may be played
+      if(r.drawStack>0){
+        const last = r.discard[r.discard.length-1];
+        const lastDV = drawValue(last);
+        const dv = drawValue(card);
+        return dv>0 && dv>=lastDV;
+      }
+      if(card.t==='wild') return true;
+      if(card.c===currentColor) return true;
+      if(top && top.t==='wild'){ return card.c===currentColor; }
+      if(top && card.c===top.c) return true;
+      if(top && card.v===top.v) return true;
+      return false;
+    }
+
+    async function playCard(idx, chooseColor){
+      const rRef=db.ref(`rooms/${roomId}`);
+      await rRef.transaction(r=>{
+        if(!r||!r.started) return r;
+        const ids=Object.keys(r.players||{}); if(ids.length===0) return r;
+        const curIdx=r.turn; const cur=ids[curIdx]; if(cur!==myId) return r;
+        const hand=r.players[cur].hand; const card=hand[idx]; if(!card) return r;
+
+        const top=r.discard[r.discard.length-1];
+        const currentColor=r.currentColor || top?.c;
+        if(!canPlay(card, top, currentColor, r)) return r;
+
+        // Remove card and push to discard
+        hand.splice(idx,1);
+        r.discard.push(card);
+
+        // Apply effects
+        if(r.drawStack>0){
+          // Only draw cards reach here; add to stack
+          r.drawStack += drawValue(card);
+          // Wild draw color choose
+          if(card.t==='wild'){ r.currentColor = chooseColor || r.currentColor || 'red'; }
+        } else {
+          if(card.t==='wild'){
+            r.currentColor = chooseColor || r.currentColor || 'red';
+            if(card.v==='+4' || card.v==='+6' || card.v==='+10'){
+              r.drawStack += drawValue(card);
+            }
+          } else {
+            r.currentColor = card.c;
+            if(card.t==='act'){
+              if(card.v==='S'){ r.turn = mod(r.turn + r.dir, ids.length); } // skip next
+              if(card.v==='R'){ r.dir = -r.dir; if(ids.length===2){ r.turn = mod(r.turn + r.dir, ids.length); } }
+              if(card.v==='+2'){ r.drawStack += 2; }
+            }
+          }
+        }
+
+        // UNO handling: if player now has 1 card, check if they armed UNO
+        if(r.players[cur].hand.length===1){
+          if(r.players[cur].unoReady){ r.players[cur].unoReady=false; } // safe, no penalty
+          else {
+            // Leave catchable state: opponents can press "Catch UNO" any time until hand changes.
+            r.catchable = cur;
+          }
+        } else { r.catchable = null; }
+        // Advance turn
+        r.turn = mod(r.turn + r.dir, ids.length);
+        return r;
+      });
+    }
+
+    // 9) Rendering
+    function render(r){
+      const ids=Object.keys(r.players||{});
+      const playersEl=$('#players'); playersEl.innerHTML='';
+      ids.forEach((pid,i)=>{
+        const p=r.players[pid];
+        const div=document.createElement('div'); div.className='player'+(pid===myId?' me':'')+(r.started && i===r.turn?' current':'');
+        const left=document.createElement('div'); left.className='row';
+        const nm=document.createElement('div'); nm.className='name'; nm.textContent=p.name||pid;
+        left.append(nm);
+        const right=document.createElement('div'); right.className='row';
+        const cards=document.createElement('div'); cards.className='badge'; cards.textContent=(p.hand?.length||0)+' cards';
+        right.append(cards);
+        if(pid!==myId && r.started && (p.hand?.length===1) && !p.unoReady){
+          const btn=document.createElement('button'); btn.className='catch'; btn.textContent='Catch UNO';
+          btn.onclick=()=>catchUNO(pid);
+          right.append(btn);
+        }
+        div.append(left,right);
+        playersEl.append(div);
+      });
+
+      const top=r.discard?.[r.discard.length-1];
+      const topEl=$('#discardTop');
+      if(top){
+        topEl.className=`card ${top.t==='wild'?'wild':top.c}`;
+        topEl.innerHTML=`<span class="tiny">DISC</span><span class="sym">${top.v||''}</span>`;
+      } else {
+        topEl.className='card outline'; topEl.innerHTML='<span class="tiny">DISC</span><span>–</span>';
+      }
+      const drawEl=$('#drawPile');
+      drawEl.onclick=()=> $('#drawBtn').click();
+
+      $('#startBtn').style.display = (isHost && !r.started)? 'inline-block':'none';
+      $('#drawBtn').style.display = r.started? 'inline-block':'none';
+      $('#unoBtn').style.display  = r.started? 'inline-block':'none';
+
+      const me=r.players?.[myId];
+      const handEl=$('#hand'); handEl.innerHTML='';
+      const currentColor=r.currentColor || top?.c;
+      me?.hand?.forEach((card,idx)=>{
+        const b=document.createElement('button'); b.className='card '+(card.t==='wild'?'wild':card.c);
+        b.innerHTML=`<span class="tiny">YOU</span><span class="sym">${card.v}</span>`;
+        const myTurn = r.started && ids[r.turn]===myId;
+        b.disabled = !(myTurn && canPlay(card, top, currentColor, r));
+        b.onclick=()=>{
+          if(card.t==='wild'){
+            $('#wildColor').style.display='inline-block';
+            $('#wildColor').onchange=(e)=>{ playCard(idx,e.target.value); e.target.style.display='none'; };
+            toast('Pick a color for your wild');
+          } else { playCard(idx); }
+        };
+        handEl.appendChild(b);
+      });
+
+      // Draw pile label for active drawStack
+      if(r.drawStack>0){
+        drawEl.classList.remove('outline');
+        drawEl.innerHTML = `<span class="tiny">DRAW</span><span class="sym">+${r.drawStack}</span>`;
+      } else {
+        drawEl.classList.add('outline');
+        drawEl.innerHTML = `<span class="tiny">DRAW</span><span>∞</span>`;
+      }
+    }
+
+    // 10) Catch UNO action
+    async function catchUNO(pid){
+      const rRef=db.ref(`rooms/${roomId}`);
+      await rRef.transaction(r=>{
+        if(!r||!r.started) return r;
+        const p=r.players?.[pid]; if(!p) return r;
+        if((p.hand?.length||0)!==1) return r; // no longer valid
+        if(p.unoReady) return r; // they armed UNO
+        // give 2 penalty cards
+        for(let i=0;i<2;i++){
+          if(r.deck.length===0){ const top=r.discard.pop(); r.deck=shuffle(r.discard); r.discard=[top]; }
+          p.hand.push(r.deck.pop());
+        }
+        p.unoReady=false; // clear
+        log('UNO caught! +2 applied.');
+        return r;
+      });
+    }
+
+  </script>
 </body>
 </html>
