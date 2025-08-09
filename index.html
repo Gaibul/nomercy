@@ -11,7 +11,7 @@
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; background:radial-gradient(60rem 60rem at 80% -10%,#23294f,transparent),radial-gradient(70rem 70rem at -10% 110%,#1b2040,transparent),var(--bg); color:#e6e8ef}
     .wrap{max-width:1100px;margin:0 auto;padding:24px}
-    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;flex-wrap:wrap}
     h1{font-size:clamp(20px,4vw,28px);margin:0}
     .pill{padding:6px 10px;background:linear-gradient(135deg,#2a2e57,#1b1f3f);border:1px solid #2d325f;border-radius:999px;color:#cbd5e1;font-size:12px}
     .panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.00));border:1px solid #2a2d52;border-radius:16px;padding:16px}
@@ -26,10 +26,11 @@
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .muted{color:var(--muted);font-size:13px}
     .label{font-size:12px;color:#cbd5e1;margin-bottom:6px}
+    .invite{display:none;gap:8px;align-items:center;background:#12163a;border:1px solid #2a2d52;border-radius:12px;padding:8px 12px}
+    .invite .code{font-weight:700;background:#0c1030;border:1px solid #2a2d52;border-radius:8px;padding:6px 10px}
     .warn{color:var(--warn)}
     .good{color:var(--good)}
     .bad{color:var(--bad)}
-
     .table{display:grid;gap:16px}
     @media(min-width:640px){.table{grid-template-columns: 1fr 320px}}
     .players{display:flex;flex-direction:column;gap:8px}
@@ -38,11 +39,9 @@
     .player .name{font-weight:600}
     .badge{padding:2px 8px;border-radius:999px;border:1px solid #2d325f;background:#14173a;color:#cbd5e1;font-size:12px}
     .current{border-color:#9f7aea;box-shadow:0 0 0 2px rgba(124,92,255,.35) inset}
-
     .board{background:conic-gradient(from 0deg,#ff4d4d 0 25%,#3ecf8e 0 50%,#ffd166 0 75%,#60a5fa 0 100%);border-radius:16px;padding:14px}
     .board-inner{background:#0e1231b8;border:1px dashed #3a3f71;padding:16px;border-radius:12px;min-height:220px;display:grid;place-items:center}
     .pile{display:flex;gap:12px;align-items:center}
-
     .card{width:70px;height:110px;border-radius:12px;background:#fff;display:grid;place-items:center;color:#111;font-weight:800;font-size:28px;box-shadow:0 10px 24px rgba(0,0,0,.2);position:relative}
     .card .sym{font-size:36px}
     .card .tiny{position:absolute;top:6px;left:8px;font-size:12px;font-weight:700}
@@ -52,9 +51,7 @@
     .card.yellow{background:#f59e0b;color:#111}
     .card.wild{background:linear-gradient(135deg,#222,#444);color:#fff}
     .card.outline{border:2px dashed #94a3b8;background:transparent;color:#94a3b8;box-shadow:none}
-
     .hand{display:flex;gap:8px;flex-wrap:wrap}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .log{height:200px;overflow:auto;background:#0d1030;border:1px solid #2a2d52;border-radius:12px;padding:10px;font-size:13px}
     .small{font-size:12px}
     .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#15183a;border:1px solid #2d325f;padding:10px 14px;border-radius:999px;color:#cbd5e1;box-shadow:0 10px 24px rgba(0,0,0,.3);display:none}
@@ -66,6 +63,11 @@
     <header>
       <h1>No‑Mercy Card Match <span class="pill">UNO‑like • Cross‑platform</span></h1>
       <div class="muted small">Host on GitHub Pages • Realtime via Firebase</div>
+      <div id="inviteBar" class="invite">
+        <span class="muted small">Room:</span>
+        <span id="roomCode" class="code">—</span>
+        <button id="copyInviteBtn">Copy invite link</button>
+      </div>
     </header>
 
     <div class="grid">
@@ -154,8 +156,8 @@
       for(const c of COLORS){
         deck.push({t:'num',c,v:'0'});
         for(const v of VALUES.filter(v=>v!=='0')){
-          deck.push({t: v.match(/\+2|S|R/) ? 'act' : 'num', c, v});
-          deck.push({t: v.match(/\+2|S|R/) ? 'act' : 'num', c, v});
+          deck.push({t: v.match(/\\+2|S|R/) ? 'act' : 'num', c, v});
+          deck.push({t: v.match(/\\+2|S|R/) ? 'act' : 'num', c, v});
         }
       }
       for(let i=0;i<4;i++){deck.push({t:'wild',v:'W'});deck.push({t:'wild',v:'+4'});}
@@ -172,6 +174,24 @@
     $('#nameInput').value=myName;
 
     let roomId=null, isHost=false, unsub=null;
+
+    const inviteBar = $('#inviteBar');
+    const roomCodeEl = $('#roomCode');
+    const copyInviteBtn = $('#copyInviteBtn');
+
+    function updateInviteBar(){
+      if(!roomId){ inviteBar.style.display='none'; return; }
+      roomCodeEl.textContent = roomId;
+      inviteBar.style.display='flex';
+    }
+    function currentInviteLink(){
+      return `${location.origin}${location.pathname}?room=${roomId}`;
+    }
+    copyInviteBtn.onclick = ()=>{
+      if(!roomId) return;
+      navigator.clipboard.writeText(currentInviteLink());
+      toast('Invite link copied');
+    };
 
     $('#createRoomBtn').onclick=async()=>{
       myName = $('#nameInput').value.trim()||`Player_${myId.slice(0,4)}`;
@@ -192,8 +212,10 @@
       await roomRef.set(base);
       await addPlayer();
       enterTable();
+      updateInviteBar();
       toast(`Room ${roomId} created`);
-      enableShare();
+      // also copy automatically once
+      try{ await navigator.clipboard.writeText(currentInviteLink()); toast('Invite link copied'); }catch{}
     };
 
     $('#joinRoomBtn').onclick=async()=>{
@@ -204,11 +226,11 @@
       roomId=id; isHost = (snap.val().host===myId);
       await addPlayer();
       enterTable();
-      enableShare();
+      updateInviteBar();
     };
     $('#copyRoomBtn').onclick=()=>{
-      const url = `${location.origin}${location.pathname}?room=${roomId}`;
-      navigator.clipboard.writeText(url); toast('Invite link copied');
+      if(!roomId){toast('Create or join a room first'); return;}
+      navigator.clipboard.writeText(currentInviteLink()); toast('Invite link copied');
     }
 
     async function addPlayer(){
@@ -231,8 +253,6 @@
       history.replaceState({},'',`?room=${roomId}`);
     }
 
-    function enableShare(){ $('#copyRoomBtn').disabled=false; }
-
     (function(){
       const u=new URL(location.href);
       const rid=u.searchParams.get('room');
@@ -250,7 +270,7 @@
       for(const pid of ids){ r.players[pid].hand=[] }
       for(let i=0;i<7;i++) for(const pid of ids){ r.players[pid].hand.push(deck.pop()) }
       let first=deck.pop();
-      while(first.t==='wild' || (first.t==='act' && first.v.match(/S|R|\+2/))){ deck.unshift(first); deck=shuffle(deck); first=deck.pop(); }
+      while(first.t==='wild' || (first.t==='act' && first.v.match(/S|R|\\+2/))){ deck.unshift(first); deck=shuffle(deck); first=deck.pop(); }
       r.discard=[first]; r.currentColor=first.c; r.turn=0; r.dir=1; r.drawStack=0; r.started=true; r.deck=deck;
       await rRef.set(r);
       log('Game started');
@@ -298,9 +318,7 @@
     function canPlay(card, top, currentColor){
       if(card.t==='wild') return true;
       if(card.c===currentColor) return true;
-      if(top && top.t==='wild'){
-        return card.c===currentColor;
-      }
+      if(top && top.t==='wild'){ return card.c===currentColor; }
       if(top && card.c===top.c) return true;
       if(top && card.v===top.v) return true;
       return false;
@@ -375,7 +393,7 @@
       const playersEl=$('#players'); playersEl.innerHTML='';
       ids.forEach((pid,i)=>{
         const p=r.players[pid];
-        const div=document.createElement('div'); div.className='player'+(pid===myId?' me':'')+(r.started && i===r.turn?' current':'');
+        const div=document.createElement('div'); div.className='player'+(pid===myId?' me':'')+(r.started && i===r.turn?' current':''); 
         const left=document.createElement('div'); left.className='row';
         const nm=document.createElement('div'); nm.className='name'; nm.textContent=p.name||pid;
         const cards=document.createElement('div'); cards.className='badge'; cards.textContent=(p.hand?.length||0)+' cards';
@@ -423,6 +441,8 @@
         drawEl.classList.add('outline');
         drawEl.innerHTML = `<span class="tiny">DRAW</span><span>∞</span>`;
       }
+
+      updateInviteBar();
     }
   </script>
 </body>
