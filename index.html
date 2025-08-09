@@ -63,6 +63,7 @@
 
     .uno{background:#ef4444;border-color:#ef4444}
     .catch{background:#f59e0b;border-color:#f59e0b;color:#111}
+    .out{opacity:.5}
   </style>
 </head>
 <body>
@@ -130,134 +131,11 @@
   <div class="toast" id="toast"></div>
 
   <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js">
-// ==========================
-// UNO No Mercy Updated Rules
-// ==========================
-
-// Fix +2 stacking to behave like +4/+10
-function canPlayCard(card) {
-    if (currentDrawStack > 0) {
-        let drawTypes = ["+2", "+4", "+10"];
-        if (drawTypes.includes(lastCardPlayed.value)) {
-            let lastVal = parseInt(lastCardPlayed.value.replace('+',''));
-            let thisVal = parseInt(card.value.replace('+','')) || 0;
-            return drawTypes.includes(card.value) && thisVal >= lastVal;
-        }
-    }
-    return (
-        card.color === lastCardPlayed.color ||
-        card.value === lastCardPlayed.value ||
-        card.color === "wild"
-    );
-}
-
-function playCard(player, card) {
-    discardPile.push(card);
-    lastCardPlayed = card;
-
-    if (card.value === "+2") {
-        currentDrawStack += 2;
-    }
-    if (card.value === "+4") {
-        currentDrawStack += 4;
-        chooseColor(player);
-    }
-    if (card.value === "+10") {
-        currentDrawStack += 10;
-        chooseColor(player);
-    }
-    if (card.value === "7") {
-        handleSevenSwap(player);
-    }
-    if (card.value === "0") {
-        handleZeroPass();
-    }
-    if (card.value === "R") {
-        handleWildRoulette(player);
-    }
-
-    player.hand = player.hand.filter(c => c !== card);
-
-    checkCardLimit(player);
-
-    if (player.hand.length === 0) {
-        announceWinner(player);
-        return;
-    }
-
-    nextTurn();
-}
-
-// 7 Swap — choose another player and swap hands
-function handleSevenSwap(player) {
-    let targetName = prompt("Choose a player to swap hands with: " + players.map(p=>p.name).join(", "));
-    let target = players.find(p => p.name === targetName && p !== player);
-    if (target) {
-        let temp = player.hand;
-        player.hand = target.hand;
-        target.hand = temp;
-        log(player.name + " swapped hands with " + target.name);
-    }
-}
-
-// 0 Pass — rotate all hands in current direction
-function handleZeroPass() {
-    if (direction === 1) {
-        let lastHand = players[players.length-1].hand;
-        for (let i = players.length-1; i > 0; i--) {
-            players[i].hand = players[i-1].hand;
-        }
-        players[0].hand = lastHand;
-    } else {
-        let firstHand = players[0].hand;
-        for (let i = 0; i < players.length-1; i++) {
-            players[i].hand = players[i+1].hand;
-        }
-        players[players.length-1].hand = firstHand;
-    }
-    log("All hands rotated!");
-}
-
-// Wild Color Roulette — draw until chosen color found
-function handleWildRoulette(player) {
-    let chosenColor = prompt("Choose a color: red, yellow, green, blue");
-    log(player.name + " chose " + chosenColor + " for Wild Roulette!");
-    let nextP = getNextPlayer();
-    let drawn = 0;
-    while (true) {
-        let card = drawCard();
-        nextP.hand.push(card);
-        drawn++;
-        if (card.color === chosenColor) break;
-    }
-    log(nextP.name + " drew " + drawn + " cards until finding a " + chosenColor + "!");
-}
-
-// 25-card limit
-function checkCardLimit(player) {
-    if (player.hand.length >= 25) {
-        log(player.name + " reached 25 cards and is eliminated!");
-        eliminatePlayer(player);
-    }
-}
-
-// Winner message
-function announceWinner(player) {
-    log("🎉 " + player.name + " WON THE GAME! 🎉");
-    gameLocked = true;
-}
-
-// Remove Pass button entirely
-document.addEventListener('DOMContentLoaded', () => {
-    let passBtn = document.getElementById('pass-btn');
-    if (passBtn) passBtn.remove();
-});
-</script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
   <script type="module">
-    // 1) Firebase config
+    // Firebase config
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
       authDomain: "nomercy-8269a.firebaseapp.com",
@@ -271,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(FIREBASE_CONFIG);
     const db = firebase.database();
 
-    // 2) Helpers
+    // Helpers
     const $ = s => document.querySelector(s);
     const logEl = $('#log');
     function log(msg){ const p=document.createElement('div'); p.textContent=msg; logEl.appendChild(p); logEl.scrollTop=logEl.scrollHeight; }
@@ -281,6 +159,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const COLORS = ['red','green','blue','yellow'];
     const VALUES = ['0','1','2','3','4','5','6','7','8','9','S','R','+2'];
+    // translate to symbol for UI if desired
+    function sym(card){
+      if(!card) return '–';
+      if(card.t==='wild'){
+        if(card.v==='+4') return '+4';
+        if(card.v==='+6') return '+6';
+        if(card.v==='+10') return '+10';
+        if(card.v==='Roulette') return '🎯';
+        return 'W';
+      }
+      return card.v;
+    }
+
     function drawValue(card){
       if(!card) return 0;
       if(card.t==='act' && card.v==='+2') return 2;
@@ -301,17 +192,19 @@ document.addEventListener('DOMContentLoaded', () => {
       for(let i=0;i<4;i++){deck.push({t:'wild',v:'W'});deck.push({t:'wild',v:'+4'});}
       for(let i=0;i<4;i++) deck.push({t:'wild',v:'+6'});
       for(let i=0;i<2;i++) deck.push({t:'wild',v:'+10'});
+      // Add Wild Color Roulette (2 copies)
+      for(let i=0;i<2;i++) deck.push({t:'wild',v:'Roulette'});
       return shuffle(deck);
     }
     function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
-    // 3) Local id/name
+    // Local id/name
     let myId=localStorage.getItem('nm_me')||uid();
     localStorage.setItem('nm_me',myId);
     let myName=localStorage.getItem('nm_name')||'';
     $('#nameInput').value=myName;
 
-    // 4) Room/session
+    // Room/session
     let roomId=null, isHost=false, unsub=null;
 
     const inviteBar = $('#inviteBar');
@@ -321,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function currentInviteLink(){ return `${location.origin}${location.pathname}?room=${roomId}`; }
     copyInviteBtn.onclick = ()=>{ if(!roomId) return; navigator.clipboard.writeText(currentInviteLink()); toast('Invite link copied'); };
 
-    // 5) Lobby actions
+    // Lobby actions
     $('#createRoomBtn').onclick=async()=>{
       myName = $('#nameInput').value.trim()||`Player_${myId.slice(0,4)}`;
       localStorage.setItem('nm_name',myName);
@@ -356,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function addPlayer(){
       myName=$('#nameInput').value.trim()||`Player_${myId.slice(0,4)}`;
       localStorage.setItem('nm_name',myName);
-      const p={id:myId,name:myName,hand:[],joined:Date.now(),unoReady:false};
+      const p={id:myId,name:myName,hand:[],joined:Date.now(),unoReady:false,out:false};
       await db.ref(`rooms/${roomId}/players/${myId}`).set(p);
     }
 
@@ -375,13 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Deep link prefill
     (function(){ const u=new URL(location.href); const rid=u.searchParams.get('room'); if(rid){ $('#roomInput').value=rid; } })();
 
-    // 6) Start game
+    // Start game
     $('#startBtn').onclick=async()=>{
       const rRef=db.ref(`rooms/${roomId}`); const snap=await rRef.get(); const r=snap.val();
       if(!isHost){ toast('Only host can start'); return }
-      const ids=Object.keys(r.players||{}); if(ids.length<2){ toast('Need at least 2 players'); return }
+      const ids=activeIds(r); if(ids.length<2){ toast('Need at least 2 players'); return }
       let deck=makeDeck();
-      for(const pid of ids){ r.players[pid].hand=[]; r.players[pid].unoReady=false; }
+      ids.forEach(pid=>{ r.players[pid].hand=[]; r.players[pid].unoReady=false; r.players[pid].out=false; });
       for(let i=0;i<7;i++) for(const pid of ids){ r.players[pid].hand.push(deck.pop()) }
       let first=deck.pop();
       while(first.t==='wild' || (first.t==='act' && first.v.match(/S|R|\\+2/))){ deck.unshift(first); deck=shuffle(deck); first=deck.pop(); }
@@ -389,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await rRef.set(r); log('Game started');
     };
 
-    // 7) Buttons
+    // Buttons
     $('#drawBtn').onclick=()=> doDraw();
     $('#unoBtn').onclick=()=> setUnoReady();
 
@@ -398,28 +291,37 @@ document.addEventListener('DOMContentLoaded', () => {
       await ref.set(true); toast('UNO armed for this turn');
     }
 
+    function activeIds(r){ return Object.keys(r.players||{}).filter(pid=>!r.players[pid].out); }
+    function nextIndex(r, idx, step=1){ const ids=activeIds(r); return mod(idx + step*r.dir, ids.length); }
+    function currentPlayerId(r){ return activeIds(r)[r.turn]; }
+    function nextPlayerId(r){ const ids=activeIds(r); return ids[nextIndex(r, r.turn, 1)]; }
+
     async function doDraw(){
       const rRef=db.ref(`rooms/${roomId}`);
       await rRef.transaction(r=>{
         if(!r||!r.started) return r;
-        const ids=Object.keys(r.players||{}); if(ids.length===0) return r;
+        const ids=activeIds(r); if(ids.length===0) return r;
         const cur=ids[r.turn]; if(cur!==myId) return r;
         const n = r.drawStack>0? r.drawStack : 1;
         for(let i=0;i<n;i++){
           if(r.deck.length===0){ const top=r.discard.pop(); r.deck=shuffle(r.discard); r.discard=[top]; }
           r.players[cur].hand.push(r.deck.pop());
         }
-        r.players[cur].unoReady=false; // UNO pre-call expires on draw/turn end
+        // 25-card limit check for drawer
+        if(r.players[cur].hand.length>=25){ r.players[cur].out=true; log(`${r.players[cur].name} eliminated (25 cards).`); }
+        r.players[cur].unoReady=false;
         r.drawStack=0;
-        r.turn = mod(r.turn + r.dir, ids.length);
+        // advance turn
+        const ids2=activeIds(r);
+        if(ids2.length<=1){ r.started=false; r.winner=ids2[0]; return r; }
+        r.turn = mod(r.turn + r.dir, ids2.length);
         return r;
       });
     }
 
-    // 8) Rules helpers
+    // Rules helpers
     function canPlay(card, top, currentColor, r){
       if(!r||!card) return false;
-      // If there is an active draw stack, only draw cards of equal or higher value may be played
       if(r.drawStack>0){
         const last = r.discard[r.discard.length-1];
         const lastDV = drawValue(last);
@@ -438,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const rRef=db.ref(`rooms/${roomId}`);
       await rRef.transaction(r=>{
         if(!r||!r.started) return r;
-        const ids=Object.keys(r.players||{}); if(ids.length===0) return r;
+        const ids=activeIds(r); if(ids.length===0) return r;
         const curIdx=r.turn; const cur=ids[curIdx]; if(cur!==myId) return r;
         const hand=r.players[cur].hand; const card=hand[idx]; if(!card) return r;
 
@@ -450,49 +352,102 @@ document.addEventListener('DOMContentLoaded', () => {
         hand.splice(idx,1);
         r.discard.push(card);
 
-        // Apply effects
+        let skipExtra=false; // for Skip/Reverse(two players) and Roulette
+
         if(r.drawStack>0){
           // Only draw cards reach here; add to stack
           r.drawStack += drawValue(card);
-          // Wild draw color choose
           if(card.t==='wild'){ r.currentColor = chooseColor || r.currentColor || 'red'; }
         } else {
           if(card.t==='wild'){
-            r.currentColor = chooseColor || r.currentColor || 'red';
-            if(card.v==='+4' || card.v==='+6' || card.v==='+10'){
+            if(card.v==='W'){ r.currentColor = chooseColor || r.currentColor || 'red'; }
+            else if(card.v==='Roulette'){
+              const color = chooseColor || r.currentColor || 'red';
+              r.currentColor = color;
+              // Next player draws until color appears (wilds do NOT count)
+              const np = nextPlayerId(r);
+              let drawn=0, got=false;
+              while(!got){
+                if(r.deck.length===0){ const top2=r.discard.pop(); r.deck=shuffle(r.discard); r.discard=[top2]; }
+                const d=r.deck.pop(); drawn++; r.players[np].hand.push(d);
+                if(d.t!=='wild' && d.c===color) got=true;
+                // safety break to avoid infinite loop
+                if(drawn>200) break;
+              }
+              // 25-card elimination check for next player
+              if(r.players[np].hand.length>=25){ r.players[np].out=true; }
+              skipExtra=true; // next player loses turn
+            } else if(card.v==='+4' || card.v==='+6' || card.v==='+10'){
+              r.currentColor = chooseColor || r.currentColor || 'red';
               r.drawStack += drawValue(card);
             }
           } else {
             r.currentColor = card.c;
             if(card.t==='act'){
-              if(card.v==='S'){ r.turn = mod(r.turn + r.dir, ids.length); } // skip next
-              if(card.v==='R'){ r.dir = -r.dir; if(ids.length===2){ r.turn = mod(r.turn + r.dir, ids.length); } }
-              if(card.v==='+2'){ r.drawStack += 2; }
+              if(card.v==='S'){ skipExtra=true; }
+              else if(card.v==='R'){
+                r.dir = -r.dir;
+                if(activeIds(r).length===2){ skipExtra=true; }
+              } else if(card.v==='+2'){
+                r.drawStack += 2;
+              } else if(card.v==='7'){
+                // choose player to swap with
+                const names = activeIds(r).map(pid=>r.players[pid].name).filter(n=>n!==r.players[cur].name);
+                let targetName = prompt(`Swap with: ${names.join(', ')}`) || '';
+                targetName = targetName.trim();
+                let targetId = activeIds(r).find(pid=>r.players[pid].name===targetName && pid!==cur);
+                if(!targetId && activeIds(r).length>1){
+                  // fallback: smallest hand not self
+                  targetId = activeIds(r).filter(pid=>pid!==cur).sort((a,b)=> (r.players[a].hand.length)-(r.players[b].hand.length))[0];
+                }
+                if(targetId){
+                  const tmp=r.players[targetId].hand; r.players[targetId].hand=r.players[cur].hand; r.players[cur].hand=tmp;
+                }
+              } else if(card.v==='0'){
+                const idsNow=activeIds(r);
+                const hands=idsNow.map(pid=>r.players[pid].hand);
+                if(r.dir===1){ hands.unshift(hands.pop()); } else { hands.push(hands.shift()); }
+                idsNow.forEach((pid,i)=> r.players[pid].hand = hands[i]);
+              }
             }
           }
         }
 
-        // UNO handling: if player now has 1 card, check if they armed UNO
+        // UNO handling: if player now has 1 card, check if they armed UNO; else set catchable
         if(r.players[cur].hand.length===1){
-          if(r.players[cur].unoReady){ r.players[cur].unoReady=false; } // safe, no penalty
-          else {
-            // Leave catchable state: opponents can press "Catch UNO" any time until hand changes.
-            r.catchable = cur;
-          }
+          if(r.players[cur].unoReady){ r.players[cur].unoReady=false; }
+          else { r.catchable = cur; }
         } else { r.catchable = null; }
-        // Advance turn
-        r.turn = mod(r.turn + r.dir, ids.length);
+
+        // Winner or elimination check
+        // If someone hit 25, mark out and possibly end
+        activeIds(r).forEach(pid=>{
+          if(r.players[pid].hand.length>=25){ r.players[pid].out=true; log(`${r.players[pid].name} eliminated (25 cards).`); }
+        });
+        const left=activeIds(r);
+        if(left.length<=1){ r.started=false; r.winner=left[0]||cur; return r; }
+
+        // If current player emptied hand -> winner
+        if(r.players[cur].hand.length===0){
+          r.started=false; r.winner=cur; return r;
+        }
+
+        // advance turn (skipExtra moves one additional step)
+        let step = 1 + (skipExtra?1:0);
+        const ids2=activeIds(r);
+        r.turn = mod(ids2.indexOf(cur) + step*r.dir, ids2.length);
+
         return r;
       });
     }
 
-    // 9) Rendering
+    // Rendering
     function render(r){
-      const ids=Object.keys(r.players||{});
+      const ids=activeIds(r);
       const playersEl=$('#players'); playersEl.innerHTML='';
-      ids.forEach((pid,i)=>{
+      ids.concat(Object.keys(r.players||{}).filter(pid=>r.players[pid].out && !ids.includes(pid))).forEach((pid,i)=>{
         const p=r.players[pid];
-        const div=document.createElement('div'); div.className='player'+(pid===myId?' me':'')+(r.started && i===r.turn?' current':'');
+        const div=document.createElement('div'); div.className='player'+(pid===myId?' me':'')+(r.started && ids[r.turn]===pid?' current':'')+(p.out?' out':'');
         const left=document.createElement('div'); left.className='row';
         const nm=document.createElement('div'); nm.className='name'; nm.textContent=p.name||pid;
         left.append(nm);
@@ -504,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.onclick=()=>catchUNO(pid);
           right.append(btn);
         }
+        if(p.out){ const b=document.createElement('div'); b.className='badge bad'; b.textContent='OUT'; right.append(b); }
         div.append(left,right);
         playersEl.append(div);
       });
@@ -512,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const topEl=$('#discardTop');
       if(top){
         topEl.className=`card ${top.t==='wild'?'wild':top.c}`;
-        topEl.innerHTML=`<span class="tiny">DISC</span><span class="sym">${top.v||''}</span>`;
+        topEl.innerHTML=`<span class="tiny">DISC</span><span class="sym">${sym(top)}</span>`;
       } else {
         topEl.className='card outline'; topEl.innerHTML='<span class="tiny">DISC</span><span>–</span>';
       }
@@ -528,11 +484,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentColor=r.currentColor || top?.c;
       me?.hand?.forEach((card,idx)=>{
         const b=document.createElement('button'); b.className='card '+(card.t==='wild'?'wild':card.c);
-        b.innerHTML=`<span class="tiny">YOU</span><span class="sym">${card.v}</span>`;
-        const myTurn = r.started && ids[r.turn]===myId;
+        b.innerHTML=`<span class="tiny">YOU</span><span class="sym">${sym(card)}</span>`;
+        const myTurn = r.started && currentPlayerId(r)===myId;
         b.disabled = !(myTurn && canPlay(card, top, currentColor, r));
         b.onclick=()=>{
-          if(card.t==='wild'){
+          if(card.t==='wild' && (card.v==='W' || card.v==='+4' || card.v==='+6' || card.v==='+10' || card.v==='Roulette')){
             $('#wildColor').style.display='inline-block';
             $('#wildColor').onchange=(e)=>{ playCard(idx,e.target.value); e.target.style.display='none'; };
             toast('Pick a color for your wild');
@@ -541,7 +497,11 @@ document.addEventListener('DOMContentLoaded', () => {
         handEl.appendChild(b);
       });
 
-      // Draw pile label for active drawStack
+      if(r.winner){
+        const name = r.players[r.winner]?.name || 'Player';
+        log(`🎉 ${name} won the game!`);
+      }
+
       if(r.drawStack>0){
         drawEl.classList.remove('outline');
         drawEl.innerHTML = `<span class="tiny">DRAW</span><span class="sym">+${r.drawStack}</span>`;
@@ -549,27 +509,26 @@ document.addEventListener('DOMContentLoaded', () => {
         drawEl.classList.add('outline');
         drawEl.innerHTML = `<span class="tiny">DRAW</span><span>∞</span>`;
       }
+
+      updateInviteBar();
     }
 
-    // 10) Catch UNO action
+    // Catch UNO
     async function catchUNO(pid){
       const rRef=db.ref(`rooms/${roomId}`);
       await rRef.transaction(r=>{
         if(!r||!r.started) return r;
-        const p=r.players?.[pid]; if(!p) return r;
-        if((p.hand?.length||0)!==1) return r; // no longer valid
-        if(p.unoReady) return r; // they armed UNO
-        // give 2 penalty cards
+        const p=r.players?.[pid]; if(!p||p.out) return r;
+        if((p.hand?.length||0)!==1) return r;
+        if(p.unoReady) return r;
         for(let i=0;i<2;i++){
           if(r.deck.length===0){ const top=r.discard.pop(); r.deck=shuffle(r.discard); r.discard=[top]; }
           p.hand.push(r.deck.pop());
         }
-        p.unoReady=false; // clear
-        log('UNO caught! +2 applied.');
+        p.unoReady=false;
         return r;
       });
     }
-
   </script>
 </body>
 </html>
