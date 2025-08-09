@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>No-Mercy Card Match (UNO-like)</title>
+  <style>
+    /* Placeholder for styles - full styles from original game go here */
+    body { background: #0f1226; color: white; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  <h1>No-Mercy Card Match (UNO-like)</h1>
+  <p>The full game code goes here with Firebase config integrated.</p>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+  <script type="module">
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
+      authDomain: "nomercy-8269a.firebaseapp.com",
+      databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "nomercy-8269a",
+      storageBucket: "nomercy-8269a.firebasestorage.app",
+      messagingSenderId: "349047620790",
+      appId: "1:349047620790:web:3206ff81cb7f5413d29217",
+      measurementId: "G-1WX7CWBFGF"
+    };
+
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const db = firebase.database();
+    console.log("Firebase connected!");
+  </script>
+</body>
+</html>
