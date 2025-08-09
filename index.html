@@ -131,46 +131,128 @@
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js">
+// ==========================
+// UNO No Mercy Updated Rules
+// ==========================
 
-// ====== UNO No Mercy Rule Updates ======
+// Fix +2 stacking to behave like +4/+10
+function canPlayCard(card) {
+    if (currentDrawStack > 0) {
+        let drawTypes = ["+2", "+4", "+10"];
+        if (drawTypes.includes(lastCardPlayed.value)) {
+            let lastVal = parseInt(lastCardPlayed.value.replace('+',''));
+            let thisVal = parseInt(card.value.replace('+','')) || 0;
+            return drawTypes.includes(card.value) && thisVal >= lastVal;
+        }
+    }
+    return (
+        card.color === lastCardPlayed.color ||
+        card.value === lastCardPlayed.value ||
+        card.color === "wild"
+    );
+}
 
-// Fix +2 stacking
-// Ensure drawTwo cards increment the draw stack like +4/+10 and restrict play to other draw cards of equal or higher value.
-function handleDrawTwoStack(player) {
-    if (currentDrawStack > 0 && lastCardPlayed.type === '+2') {
-        // enforce stacking or drawing logic here
+function playCard(player, card) {
+    discardPile.push(card);
+    lastCardPlayed = card;
+
+    if (card.value === "+2") {
+        currentDrawStack += 2;
+    }
+    if (card.value === "+4") {
+        currentDrawStack += 4;
+        chooseColor(player);
+    }
+    if (card.value === "+10") {
+        currentDrawStack += 10;
+        chooseColor(player);
+    }
+    if (card.value === "7") {
+        handleSevenSwap(player);
+    }
+    if (card.value === "0") {
+        handleZeroPass();
+    }
+    if (card.value === "R") {
+        handleWildRoulette(player);
+    }
+
+    player.hand = player.hand.filter(c => c !== card);
+
+    checkCardLimit(player);
+
+    if (player.hand.length === 0) {
+        announceWinner(player);
+        return;
+    }
+
+    nextTurn();
+}
+
+// 7 Swap — choose another player and swap hands
+function handleSevenSwap(player) {
+    let targetName = prompt("Choose a player to swap hands with: " + players.map(p=>p.name).join(", "));
+    let target = players.find(p => p.name === targetName && p !== player);
+    if (target) {
+        let temp = player.hand;
+        player.hand = target.hand;
+        target.hand = temp;
+        log(player.name + " swapped hands with " + target.name);
     }
 }
 
-// Implement 7 swap rule
-function handleSevenSwap(player) {
-    // let them choose another player and swap hands
-}
-
-// Implement 0 pass rule
+// 0 Pass — rotate all hands in current direction
 function handleZeroPass() {
-    // rotate hands in direction of play
+    if (direction === 1) {
+        let lastHand = players[players.length-1].hand;
+        for (let i = players.length-1; i > 0; i--) {
+            players[i].hand = players[i-1].hand;
+        }
+        players[0].hand = lastHand;
+    } else {
+        let firstHand = players[0].hand;
+        for (let i = 0; i < players.length-1; i++) {
+            players[i].hand = players[i+1].hand;
+        }
+        players[players.length-1].hand = firstHand;
+    }
+    log("All hands rotated!");
 }
 
-// Implement Wild Color Roulette
-function handleWildRoulette(player, chosenColor) {
-    // next player draws until they find chosenColor
+// Wild Color Roulette — draw until chosen color found
+function handleWildRoulette(player) {
+    let chosenColor = prompt("Choose a color: red, yellow, green, blue");
+    log(player.name + " chose " + chosenColor + " for Wild Roulette!");
+    let nextP = getNextPlayer();
+    let drawn = 0;
+    while (true) {
+        let card = drawCard();
+        nextP.hand.push(card);
+        drawn++;
+        if (card.color === chosenColor) break;
+    }
+    log(nextP.name + " drew " + drawn + " cards until finding a " + chosenColor + "!");
 }
 
-// Check 25-card limit
+// 25-card limit
 function checkCardLimit(player) {
     if (player.hand.length >= 25) {
-        log(player.name + " has reached 25 cards and is eliminated!");
+        log(player.name + " reached 25 cards and is eliminated!");
         eliminatePlayer(player);
     }
 }
 
-// Announce winner
+// Winner message
 function announceWinner(player) {
-    log(player.name + " won the game!");
+    log("🎉 " + player.name + " WON THE GAME! 🎉");
     gameLocked = true;
 }
 
+// Remove Pass button entirely
+document.addEventListener('DOMContentLoaded', () => {
+    let passBtn = document.getElementById('pass-btn');
+    if (passBtn) passBtn.remove();
+});
 </script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
