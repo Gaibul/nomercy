@@ -1,4 +1,11 @@
-<!DOCTYPE html>
+# We'll write an updated index.html implementing:
+# - More reliable Wild Color Roulette (prompt-based color selection, guard against endless loop)
+# - Host can kick players (UI button next to each player if host)
+# - Ensure drawing that pushes a hand over 25 still draws then ends the game with a clear end message
+#
+# Note: This is a complete file so the user can drop it into their repo.
+
+full_html = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -63,6 +70,7 @@
 
     .uno{background:#ef4444;border-color:#ef4444}
     .catch{background:#f59e0b;border-color:#f59e0b;color:#111}
+    .kick{background:#ef4444;border-color:#7f1d1d}
   </style>
 </head>
 <body>
@@ -105,12 +113,6 @@
                   <button class="primary" id="startBtn">Start game</button>
                   <button id="drawBtn">Draw</button>
                   <button id="unoBtn" class="uno">UNO!</button>
-                  <select id="wildColor" style="display:none">
-                    <option value="red">Red</option>
-                    <option value="green">Green</option>
-                    <option value="blue">Blue</option>
-                    <option value="yellow">Yellow</option>
-                  </select>
                 </div>
               </div>
             </div>
@@ -314,6 +316,7 @@
         r.players[cur].unoReady=false;
         r.drawStack=0;
 
+        // Ensure we still apply the loss AFTER the full draw is completed
         r = checkEndStates(r);
         if(r.ended) return r;
 
@@ -360,6 +363,15 @@
       }
     }
 
+    function pickColorPrompt(defaultColor){
+      const msg = 'Pick a color: R=red, G=green, B=blue, Y=yellow';
+      const map = {r:'red', g:'green', b:'blue', y:'yellow'};
+      let ans = prompt(msg, (defaultColor||'red')[0]);
+      if(!ans) return defaultColor||'red';
+      ans = ans.trim().toLowerCase()[0];
+      return map[ans] || defaultColor || 'red';
+    }
+
     async function playCard(idx, chooseColor, swapTargetPid){
       const rRef=db.ref(`rooms/${roomId}`);
       await rRef.transaction(r=>{
@@ -380,32 +392,35 @@
         if(r.drawStack>0){
           // Only draw cards reach here; add to stack
           r.drawStack += drawValue(card);
-          if(card.t==='wild'){ r.currentColor = chooseColor || r.currentColor || 'red'; }
+          if(card.t==='wild'){ r.currentColor = chooseColor || pickColorPrompt(r.currentColor||'red'); }
         } else {
           if(card.t==='wild'){
-            r.currentColor = chooseColor || r.currentColor || 'red';
+            const picked = chooseColor || pickColorPrompt(r.currentColor||'red');
+            r.currentColor = picked;
             if(card.v==='+4' || card.v==='+6' || card.v==='+10'){
               r.drawStack += drawValue(card);
             }
-            // Wild Color Roulette
+            // Wild Color Roulette — robust version with escape hatch
             if(card.v==='WR'){
-              // The next player draws until they get a card of chosen color, then ends turn.
               const nextIdx = mod(curIdx + r.dir, ids.length);
               const nxt = ids[nextIdx];
-              let pulled=null;
               let draws=0;
-              while(true){
+              // Guard limit: draw at most total cards available + 2 reshuffles
+              const hardCap = (r.deck.length + r.discard.length + 108);
+              while(draws <= hardCap){
                 refillDeck(r);
                 const d = r.deck.pop();
                 r.players[nxt].hand.push(d);
                 draws++;
-                if(d.c===r.currentColor){ pulled=d; break; }
+                if(d.c===r.currentColor){ break; }
               }
               // End victim's turn immediately; advance to following player
               r.turn = mod(nextIdx + r.dir, ids.length);
               // Clear UNO on both actors
               r.players[cur].unoReady=false;
               r.players[nxt].unoReady=false;
+
+              // If WR caused someone to hit 25+, end now
               r = checkEndStates(r);
               return r;
             }
@@ -431,7 +446,7 @@
           }
         }
 
-        // UNO handling: if player now has 1 card, set catchable if not armed
+        // UNO handling
         if(r.players[cur].hand.length===1){
           if(r.players[cur].unoReady){ r.players[cur].unoReady=false; }
           else { r.catchable = cur; }
@@ -450,7 +465,44 @@
       });
     }
 
-    // 9) Rendering
+    // 9) Kick player (host-only)
+    async function kickPlayer(pid){
+      const rRef=db.ref(`rooms/${roomId}`);
+      await rRef.transaction(r=>{
+        if(!r) return r;
+        if(r.host!==myId) return r; // only host
+        if(!r.players || !r.players[pid]) return r;
+        const ids=Object.keys(r.players);
+        const kickedIndex = ids.indexOf(pid);
+        // Adjust turn if needed
+        if(r.started){
+          if(kickedIndex===r.turn){
+            // move turn to next player in same direction
+            const remaining = ids.filter(x=>x!==pid);
+            if(remaining.length>0){
+              const nextIndex = mod(kickedIndex + r.dir, ids.length);
+              const nextPid = ids[nextIndex]===pid ? remaining[0] : ids[nextIndex];
+              r.turn = remaining.indexOf(nextPid);
+            } else {
+              r.turn = 0;
+            }
+          } else if(kickedIndex < r.turn){
+            r.turn = Math.max(0, r.turn-1);
+          }
+        }
+        delete r.players[pid];
+
+        // If only one player remains in a started game, declare winner
+        const left = Object.keys(r.players||{});
+        if(r.started && left.length===1 && !r.ended){
+          r.ended=true; r.winner=left[0]; r.endMsg=`${r.players[left[0]].name||left[0]} is the last player standing and WINS!`;
+        }
+        return r;
+      });
+      toast('Player removed');
+    }
+
+    // 10) Rendering
     function render(r){
       const ids=Object.keys(r.players||{});
       const playersEl=$('#players'); playersEl.innerHTML='';
@@ -463,6 +515,18 @@
         const right=document.createElement('div'); right.className='row';
         const cards=document.createElement('div'); cards.className='badge'; cards.textContent=(p.hand?.length||0)+' cards';
         right.append(cards);
+
+        // Host can kick others
+        if(r.host===myId && pid!==myId){
+          const k=document.createElement('button'); k.className='kick'; k.textContent='Kick';
+          k.onclick=()=>{
+            if(confirm(`Remove ${p.name||pid} from the room?`)){
+              kickPlayer(pid);
+            }
+          };
+          right.append(k);
+        }
+
         if(pid!==myId && r.started && (p.hand?.length===1) && !p.unoReady){
           const btn=document.createElement('button'); btn.className='catch'; btn.textContent='Catch UNO';
           btn.onclick=()=>catchUNO(pid);
@@ -498,12 +562,10 @@
         b.innerHTML=`<span class="tiny">YOU</span><span class="sym">${card.v}</span>`;
         b.disabled = !(myTurn && canPlay(card, top, currentColor, r));
         b.onclick=()=>{
-          // Wild color picker (for W, +4, +6, +10, WR)
+          // Wilds: prompt color directly (more reliable than dropdown)
           if(card.t==='wild'){
-            $('#wildColor').style.display='inline-block';
-            $('#wildColor').value = currentColor || 'red';
-            $('#wildColor').onchange=(e)=>{ playCard(idx,e.target.value); e.target.style.display='none'; };
-            toast('Pick a color for your wild');
+            const color = pickColorPrompt(currentColor||'red');
+            playCard(idx,color);
             return;
           }
           // 7: prompt for target player
@@ -542,7 +604,7 @@
       if(!r.ended){ render._announcedEnd = false; }
     }
 
-    // 10) Catch UNO action
+    // 11) Catch UNO action
     async function catchUNO(pid){
       const rRef=db.ref(`rooms/${roomId}`);
       await rRef.transaction(r=>{
@@ -555,6 +617,8 @@
           p.hand.push(r.deck.pop());
         }
         p.unoReady=false;
+        // If catch pushes over 25, end immediately
+        r = checkEndStates(r);
         return r;
       });
       log('UNO caught! +2 applied.');
@@ -563,3 +627,8 @@
   </script>
 </body>
 </html>
+'''
+with open('/mnt/data/index.html','w',encoding='utf-8') as f:
+    f.write(full_html)
+
+'/mnt/data/index.html'
