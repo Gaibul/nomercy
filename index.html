@@ -1,11 +1,4 @@
-# We'll write an updated index.html implementing:
-# - More reliable Wild Color Roulette (prompt-based color selection, guard against endless loop)
-# - Host can kick players (UI button next to each player if host)
-# - Ensure drawing that pushes a hand over 25 still draws then ends the game with a clear end message
-#
-# Note: This is a complete file so the user can drop it into their repo.
-
-full_html = r'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -627,8 +620,3 @@ full_html = r'''<!DOCTYPE html>
   </script>
 </body>
 </html>
-'''
-with open('/mnt/data/index.html','w',encoding='utf-8') as f:
-    f.write(full_html)
-
-'/mnt/data/index.html'
